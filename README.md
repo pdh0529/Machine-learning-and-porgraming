@@ -1,137 +1,150 @@
-# Machine-learning-and-porgraming
+# Machine-learning-and-programming
 
-# 🔋 LSTM 기반 공작기계 에너지 소비 예측
+# 🔋 LSTM-Based Energy Consumption Prediction for Machine Tools
 
-본 프로젝트는 LSTM(Long Short-Term Memory) 모델을 활용하여 공작기계의 센서 데이터를 기반으로 전력 소비(`pwr`)를 예측하는 시계열 딥러닝 모델입니다.
+This project is a time-series deep learning model using an LSTM (Long Short-Term Memory) architecture to predict power consumption (`pwr`) based on sensor data from machine tools.
 
-## 📁 프로젝트 폴더 구조
- ``` project_root/
+## 📁 Project Folder Structure
+```
+project_root/
 ├── data/
-│ ├── train_file_1.csv
-│ ├── train_file_2.csv
-│ ├── train_file_3.csv
-│ └── test_file.csv
+│   ├── train_file_1.csv
+│   ├── train_file_2.csv
+│   ├── train_file_3.csv
+│   └── test_file.csv
 │
 ├── results/
-│ ├── models/
-│ ├── scalers/
-│ └── predictions/
+│   ├── models/
+│   ├── scalers/
+│   └── predictions/
 │
 ├── lstm_train_predict.py
 ├── README.md
 └── requirements.txt
- ``` 
+```
+
 ---
-### ⏳ 시계열 모델 구조 설명
 
-- 본 LSTM 모델은 시계열 예측 기반으로, `SEQ_LEN=20`, `LAG=10`을 설정하여 구성되었습니다.
-- `SEQ_LEN=20`은 20개 연속된 시점의 피처 데이터를 입력 시퀀스로 사용한다는 의미이며,
-- `LAG=10`은 예측 타깃 시점이 입력 시퀀스보다 10 타임스텝 뒤에 존재함을 의미합니다.
+### ⏳ Time Series Model Structure
 
-- 이와 같은 LAG 설정은 단순 시간 지연이 아니라, **공작기계에 부착된 센서들의 실제 수집 지연(delay) 현상을 반영**하기 위한 것으로,
-  예측 대상 전력 소비가 물리적으로 발생하는 시점과 데이터가 기록되는 시점 간의 간극을 모델에 학습시키기 위함입니다.
+- This LSTM model is based on time series prediction, configured with `SEQ_LEN=20` and `LAG=10`.
+- `SEQ_LEN=20` means the input sequence consists of 20 consecutive time steps of feature data.
+- `LAG=10` means the target prediction point is 10 time steps ahead of the input sequence.
 
-- 결과적으로, `[t ~ t+19]` 시퀀스를 입력하면 `t+30` 시점의 전력 소비(`pwr`)를 예측하게 됩니다.
+- This LAG setting is not a simple delay, but reflects the **actual delay in sensor data acquisition from machine tools**,  
+  helping the model learn the time lag between the moment power is consumed and when it is recorded.
 
-### ⚠️ Idle Power 처리 방식
+- Consequently, an input sequence of `[t ~ t+19]` is used to predict power at time `t+30`.
 
-- 본 모델은 전력 소비 예측 시, **비가공(idle) 구간의 전력도 포함하되**,  
-  이를 그대로 예측 타깃으로 사용하지 않고 **사전 보정된 값**을 사용합니다.
+### ⚠️ Idle Power Handling
 
-- 실제로는 idle 상태의 소비전력이 존재하며, **KITECH 공작기계 기준 약 0.4 kW**입니다.
+- While the model includes idle (non-cutting) sections in its prediction,  
+  it does **not directly use idle power as a target**, but uses a **pre-adjusted value**.
 
-- 따라서, 원본 데이터에서 가공 중이 아닌 구간의 전력값은 **0이 아니라, 약 0.4kW 수준**의 상수이며,  
-  이 값을 예측에 포함시키면 오차가 왜곡될 수 있기 때문에, **전체 전력에서 idle 전력(0.4 kW)을 차감하여 순수 가공 중 소비 전력만을 모델의 예측 타깃으로 사용**하였습니다.
+- In reality, idle power consumption exists — approximately **0.4 kW for KITECH machine tools**.
 
-- 또한, `is_cut_active`라는 이진 피처를 추가하여,  
-  모델이 절삭(active) 구간과 비절삭(idle) 구간을 학습 중 명확히 구분할 수 있도록 설계되었습니다.
+- Thus, power values in non-cutting sections are **not zero**, but constant around 0.4 kW.  
+  Including them would distort error calculations, so **idle power (0.4 kW) was subtracted**, and only net cutting power is used as the prediction target.
 
+- A binary feature `is_cut_active` was added to help the model distinguish clearly between active and idle cutting phases.
 
-## ⚙️ 실행 방법
+---
 
-### 1. 코드 실행 환경 준비
+## ⚙️ How to Run
 
-- Python 3.8 설치 (Anaconda 환경 사용 시 안정적)
-- 필요한 라이브러리 설치:
+### 1. Set Up the Environment
+
+- Install Python 3.8 (Anaconda environment recommended)
+- Install dependencies:
 
 ```bash
 pip install -r requirements.txt
-``` 
+```
 
-### 2. 코드 설명
-- 경로 설정: 코드 상단에 있는 경로를 로컬 환경에 맞게 수정해야 합니다.
-- 학습 조건 설정 : 1. 학습 feature 설정 2. target 설정 3. Sequence 설정 (Seq_Len) 4. time delay 설정 (LAG) 5. 학습횟수 설정 (NUM_SEEDS) 6. 한번에 flot할 데이터 개수 설정 (GROUP_SIZE)
+### 2. Code Explanation
 
-### 3. 코드 흐름 요약
+- Modify path settings at the top of the code to match your local environment.
+- Set training parameters:
+  1. input features
+  2. target
+  3. sequence length (`SEQ_LEN`)
+  4. time delay (`LAG`)
+  5. number of seeds (`NUM_SEEDS`)
+  6. group size (`GROUP_SIZE`)
 
-1. **데이터 불러오기**
-   - 세 개의 학습용 CSV 파일과 하나의 테스트용 CSV 파일을 불러옴
+### 3. Code Flow Summary
 
-2. **피처 생성 및 전처리**
-   - clx/clz 등 절삭력 벡터에서 `force_norm`, `feed_norm`, `energy_proxy` 파생 변수 생성
-   - 이상치(IQR 방식)를 제거하여 학습 안정성 향상
+1. **Load Data**
+   - Load three training CSV files and one test CSV file.
 
-3. **스케일링**
-   - `MinMaxScaler`를 통해 feature 및 target 값을 0~1 범위로 정규화
-   - 추후 예측 결과 역변환을 위해 스케일러도 저장함
+2. **Feature Engineering & Preprocessing**
+   - Generate derived variables such as `force_norm`, `feed_norm`, and `energy_proxy` from cutting force vectors (clx/clz).
+   - Remove outliers using the IQR method to improve training stability.
 
-4. **시퀀스 생성**
-   - LSTM 입력에 맞게 시계열 데이터(`SEQ_LEN`)를 슬라이딩 윈도우 방식으로 시퀀스화
-   - 예측 시점은 시퀀스 기준 `LAG`만큼 뒤의 값을 타겟으로 지정
+3. **Scaling**
+   - Normalize features and targets to a 0–1 range using `MinMaxScaler`.
+   - Save the scaler for inverse transformation after prediction.
 
-5. **모델 학습 (반복)**
-   - Seed 값을 1~10까지 다르게 주고, 동일한 구조의 LSTM 모델을 반복 학습
-   - 모델은 `2층 LSTM + Dense` 구조이며, `EarlyStopping`을 통해 과적합 방지
-   - 각 모델은 `.h5` 형식으로 저장됨
+4. **Sequence Generation**
+   - Convert time-series data into sequences (`SEQ_LEN`) using a sliding window.
+   - Set the target as the value `LAG` steps after each sequence.
 
-6. **예측 및 결과 저장**
-   - 학습된 모델로 테스트 데이터를 예측하고, `MinMaxScaler`를 이용해 실제 단위로 역변환
-   - 예측 결과는 실제 값과 함께 `.csv`로 저장됨
+5. **Model Training (Repetitions)**
+   - Train models with different seeds (1–10).
+   - Architecture: 2-layer LSTM + Dense, with EarlyStopping.
+   - Save models in `.h5` format.
 
-7. **시각화**
-   - 예측값 vs 실제값을 라인 그래프로 그려 비교
-   - 5개씩 묶어 seed 그룹 단위로 총 2개의 그래프 출력
+6. **Prediction & Save Results**
+   - Predict using trained models.
+   - Inversely transform predictions to original scale.
+   - Save predictions and actual values to `.csv`.
 
+7. **Visualization**
+   - Plot predicted vs actual values.
+   - Two line plots, each showing predictions from 5 seed models.
 
-### 4. 학습모델 선정
-LSTM 학습모델 특성상 같은 파라미터로 학습해도 결과가 다르게 출력 될 수 있어 육안으로 확인 또는 정량적 지표 기준으로 모델을 선정하는 과정이 필요함
+### 4. Model Selection
 
+Due to the stochastic nature of LSTM training, even with identical parameters, results may vary.  
+Model selection is done either visually or using evaluation metrics.
 
-## 📈 예측 결과 요약
+---
 
-- 본 모델은 SM45C와 AL6061 소재를 대상으로 다양한 가공 조건(슬로팅, 드릴링, 페이스밀 등)에서 수집된 시계열 데이터를 기반으로 학습되었습니다.
-- 예측 대상은 공작기계 가공 중 실시간 전력 소비량이며, 단위는 kW입니다.
+## 📈 Prediction Summary
 
-- 평균 예측 오차는 약 **0.3kW 이하**로 매우 낮은 수준이며,  
-  특히 기존 RNN 모델로는 잡히지 않던 **소비전력 피크 시점**을 정확히 포착할 수 있었습니다.
+- Trained on time-series data from machining processes (slotting, drilling, face milling) on **SM45C** and **AL6061**.
+- Target: real-time power consumption during cutting (unit: kW).
 
-- LSTM 모델 도입 및 `is_cut_active`, `energy_proxy`, 소재비(cutting ratio) 등 **3가지 피처 추가**가 예측 정확도 향상에 큰 기여를 했습니다.
+- Average prediction error is **below 0.3 kW**.
+- The model accurately captures **power peaks**, unlike previous RNN models.
 
-- 에너지 소비 총량 예측 정확도는 다소 떨어질 수 있지만, **패턴 추적 성능(R² 기준)**은 시각적으로 만족할 만한 수준입니다.
+- Key improvements were achieved by adding:
+  - `is_cut_active`
+  - `energy_proxy`
+  - cutting ratio
 
-- 아래는 예측값과 실제값의 시각화 예시입니다:
-  - 검은선 = 실제 전력 소비
-  - 컬러 선 = seed별 LSTM 예측값
-  - 5개씩 묶어서 총 2개의 비교 그래프 제공됨
+- Total energy accuracy may be lower, but **pattern tracking (R²)** is visually reliable.
 
-- Idle 상태 전력(약 0.4kW)을 사전에 제거한 **순수 가공 구간 전력**만을 예측 대상으로 설정하였습니다.
+- Visualization:
+  - Black line = actual power
+  - Colored lines = predicted values (per seed)
+  - Two grouped comparison plots provided
 
-### 🔢 모델 성능 요약 (Tool별)
+- Prediction targets exclude idle power (~0.4 kW), using **only net cutting power**.
 
-| Tool           | RMSE (kW) | MAE (kW) | R²     |
-|----------------|-----------|----------|--------|
-| Facemill       | 0.1941    | 0.1325   | 0.7039 |
-| 10pi Flat      | 0.9721    | 0.2331   | -1.0278 |
-| 16pi Flat      | 0.3098    | 0.1456   | 0.3619 |
-| 10pi Drill     | 0.4519    | 0.2058   | 0.6558 |
-| 16pi Drill     | 0.4922    | 0.2677   | 0.8410 |
+### 🔢 Model Performance Summary (By Tool)
 
-- 일부 공정에서는 R²가 음수로 나오는 등 예측 정확도가 낮은 경우도 있었지만,  
-  **전체적인 소비 패턴과 피크 타이밍은 잘 포착됨**.
-- 특히 16pi Drill의 경우 가장 높은 R²(0.84)를 기록하며, 실제 소비 곡선을 잘 재현함.
+| Tool         | RMSE (kW) | MAE (kW) | R²     |
+|--------------|-----------|----------|--------|
+| Facemill     | 0.1941    | 0.1325   | 0.7039 |
+| 10pi Flat    | 0.9721    | 0.2331   | -1.0278 |
+| 16pi Flat    | 0.3098    | 0.1456   | 0.3619 |
+| 10pi Drill   | 0.4519    | 0.2058   | 0.6558 |
+| 16pi Drill   | 0.4922    | 0.2677   | 0.8410 |
 
-> ※ R² < 0인 경우, 예측값이 평균보다도 못한 수준임을 의미하며,  
-해당 공구 조건에서는 추가적인 피처 보강 또는 모델 튜닝이 필요합니다.
+- Some tools (e.g., 10pi Flat) showed negative R², indicating predictions worse than a mean estimate.  
+  These require feature engineering or model tuning.
 
+- The 16pi Drill achieved the highest R² (0.84), accurately reproducing the actual power curve.
 
-
+> ⚠️ Note: R² < 0 means the prediction is worse than the mean. Such cases require further model improvement.
